@@ -1,0 +1,33 @@
+# Environment variables (contains API keys)
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv
+venv/
+ENV/
+env/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OCR samples and debug outputs
+ocr_samples/
+test/debug/images/debug_output/
+*.mp3
+*.wav
+
+# Temp files
+*.tmp
+*.log

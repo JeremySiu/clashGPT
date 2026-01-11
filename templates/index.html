@@ -1,0 +1,1236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clash Royale AI Coach</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Lato:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            height: 100%;
+            overflow-x: hidden;
+        }
+
+        body {
+            font-family: 'Lato', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #4A90E2 0%, #7B68EE 25%, #E94B3C 75%, #F44336 100%);
+            background-attachment: fixed;
+            min-height: 100vh;
+            max-width: 100vw;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            position: relative;
+            overflow-x: hidden;
+            overflow-y: auto;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: linear-gradient(
+                135deg,
+                transparent 0%,
+                transparent 40%,
+                rgba(255, 215, 0, 0.2) 50%,
+                transparent 60%,
+                transparent 100%
+            );
+            
+            background-size: 300% 300%;
+            background-position: 100% 0%;
+            animation: shimmer 5s  infinite;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        @keyframes shimmer {
+            0%, 15% {
+                background-position: 100% 0%;
+                opacity: 0;
+            }
+            16% {
+                opacity: 1;
+            }
+            31% {
+                background-position: 0% 100%;
+                opacity: 1;
+            }
+            32%, 100% {
+                background-position: 0% 100%;
+                opacity: 0;
+            }
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.98);
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+            max-width: 1200px;
+            width: 100%;
+            padding: 30px;
+            position: relative;
+            z-index: 1;
+            margin: 20px 0;
+            border: 3px solid rgba(255, 215, 0, 0.3);
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 2em;
+            font-family: 'Cinzel', serif;
+            font-weight: 700;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+        }
+
+        .title-icon {
+            width: 50px;
+            height: 50px;
+            object-fit: contain;
+            border-radius: 20%;
+        }
+
+        h2 {
+            font-family: 'Cinzel', serif;
+            font-weight: 600;
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            justify-content: center;
+        }
+
+        button {
+            padding: 12px 35px;
+            font-size: 16px;
+            font-weight: bold;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-transform: uppercase;
+        }
+
+        .start-btn {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .start-btn:hover:not(:disabled) {
+            background: #45a049;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(76, 175, 80, 0.4);
+        }
+
+        .stop-btn {
+            background: #f44336;
+            color: white;
+        }
+
+        .stop-btn:hover:not(:disabled) {
+            background: #da190b;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(244, 67, 54, 0.4);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .status {
+            padding: 12px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .status.info { background: #2196F3; color: white; }
+        .status.success { background: #4CAF50; color: white; }
+        .status.warning { background: #ff9800; color: white; }
+        .status.error { background: #f44336; color: white; }
+
+        .game-state {
+            background: transparent;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .timer-display {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 25px 40px;
+            border-radius: 60px;
+            width: fit-content;
+            align-self: flex-start;
+            text-align: center;
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+            border: 3px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .timer-label {
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 0.9em;
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-family: 'Cinzel', serif;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .timer-value {
+            color: white;
+            font-size: 3em;
+            font-weight: 700;
+            font-family: 'Cinzel', serif;
+            text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.3);
+            line-height: 1;
+        }
+
+        .game-state h2 {
+            color: #333;
+            margin-bottom: 8px;
+            font-size: 1.1em;
+        }
+
+        .game-state p {
+            color: #666;
+            font-size: 1em;
+            font-family: 'Courier New', monospace;
+        }
+
+        .feedback {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 25px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            color: white;
+            transition: background 0.3s;
+        }
+
+        .feedback h2 {
+            margin-bottom: 15px;
+            font-size: 1.3em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .character-select {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+        }
+
+        .character-select h2 {
+            color: #333;
+            margin-bottom: 12px;
+            text-align: center;
+            font-size: 1.1em;
+        }
+
+        .character-buttons {
+            display: flex;
+            flex-wrap: nowrap;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .character-btn {
+            padding: 12px 8px;
+            font-size: 13px;
+            font-weight: bold;
+            border: 3px solid transparent;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: white;
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+            width: 130px;
+        }
+
+        .character-btn .emoji {
+            font-size: 30px;
+        }
+
+        .character-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .character-btn.selected {
+            border-color: currentColor;
+            box-shadow: 0 5px 20px currentColor;
+        }
+
+        .feedback p {
+            font-size: 1.1em;
+            line-height: 1.5;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .hp-bars {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 12px;
+        }
+
+        .hp-bar {
+            background: white;
+            padding: 8px;
+            border-radius: 8px;
+        }
+
+        .hp-bar h3 {
+            font-size: 0.85em;
+            margin-bottom: 5px;
+            color: #666;
+        }
+
+        .hp-progress {
+            height: 18px;
+            background: #ddd;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .hp-fill {
+            height: 100%;
+            transition: width 0.5s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 0.9em;
+        }
+
+        .hp-fill.red { background: linear-gradient(90deg, #f44336, #e91e63); }
+        .hp-fill.blue { background: linear-gradient(90deg, #2196F3, #3F51B5); }
+
+        /* Help Button */
+        .help-button {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 50px;
+            height: 50px;
+            border-radius: 1000000000000000000px;
+            background: linear-gradient(135deg, #eeeff5 0%, #764ba2 100%);
+            border: 3px solid white;
+            color: white;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+            transition: all 0.3s;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Cinzel', serif;
+        }
+
+        .help-button:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+        }
+
+        /* Settings Button */
+        .settings-button {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            width: 50px;
+            height: 50px;
+            border-radius: 1000000000000000000px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: 3px solid white;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+            transition: all 0.3s;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .settings-button:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+        }
+
+        .settings-button span {
+            display: inline-block;
+            transition: transform 0.3s;
+        }
+
+        .settings-button:hover span {
+            transform: rotate(90deg);
+        }
+
+        /* Settings Panel */
+        .settings-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 2000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .settings-overlay.active {
+            display: flex;
+        }
+
+        .settings-panel {
+            background: white;
+            border-radius: 20px;
+            max-width: 500px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            position: relative;
+            animation: slideIn 0.3s ease-out;
+            scrollbar-width: none;
+        }
+
+        .settings-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 20px 20px 0 0;
+            position: relative;
+        }
+
+        .settings-header h2 {
+            margin: 0;
+            font-family: 'Cinzel', serif;
+            font-size: 1.8em;
+            text-align: center;
+        }
+
+        .settings-content {
+            padding: 30px;
+        }
+
+        .setting-item {
+            margin-bottom: 25px;
+        }
+
+        .setting-item label {
+            display: block;
+            color: #333;
+            font-weight: 600;
+            margin-bottom: 10px;
+            font-size: 1.05em;
+        }
+
+        .setting-item input[type="range"] {
+            width: 100%;
+            height: 8px;
+            border-radius: 5px;
+            background: #ddd;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .setting-item input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+
+        .setting-item input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            border: none;
+        }
+
+        .setting-value {
+            display: inline-block;
+            margin-left: 10px;
+            color: #667eea;
+            font-weight: bold;
+            min-width: 60px;
+            text-align: right;
+        }
+
+        .setting-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 30px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 30px;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 22px;
+            width: 22px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .toggle-slider {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        input:checked + .toggle-slider:before {
+            transform: translateX(30px);
+        }
+
+        .setting-description {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        /* Instructions Panel */
+        .instructions-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 2000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .instructions-overlay.active {
+            display: flex;
+        }
+
+        .instructions-panel {
+            background: white;
+            border-radius: 20px;
+            max-width: 600px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            position: relative;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateY(-50px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .instructions-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 20px 20px 0 0;
+            position: relative;
+        }
+
+        .instructions-header h2 {
+            margin: 0;
+            font-family: 'Cinzel', serif;
+            font-size: 1.8em;
+            text-align: center;
+        }
+
+        .close-button {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            width: 30px;
+            height: 30px;
+            border-radius: 10000000000px;
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid white;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+        }
+
+        .close-button:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: scale(1.1);
+        }
+
+        .instructions-content {
+            padding: 30px;
+        }
+
+        .instruction-step {
+            margin-bottom: 25px;
+            display: flex;
+            gap: 15px;
+        }
+
+        .step-number {
+            min-width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.2em;
+            font-family: 'Cinzel', serif;
+            flex-shrink: 0;
+        }
+
+        .step-content {
+            flex: 1;
+        }
+
+        .step-content h3 {
+            color: #333;
+            margin-bottom: 8px;
+            font-family: 'Cinzel', serif;
+            font-size: 1.1em;
+        }
+
+        .step-content p {
+            color: #666;
+            line-height: 1.6;
+            margin: 0;
+        }
+    </style>
+</head title = "ClashGPT - AI Coach for Clash Royale">
+<body>
+    <!-- Settings Button -->
+    <button class="settings-button" id="settingsButton" title="Settings"><span>⚙️</span></button>
+
+    <!-- Help Button -->
+    <button class="help-button" id="helpButton" title="How to use ClashGPT">?</button>
+
+    <!-- Settings Panel Overlay -->
+    <div class="settings-overlay" id="settingsOverlay">
+        <div class="settings-panel">
+            <div class="settings-header">
+                <h2>⚙️ Settings</h2>
+                <button class="close-button" id="closeSettingsButton">×</button>
+            </div>
+            <div class="settings-content">
+                <div class="setting-item">
+                    <div class="setting-toggle">
+                        <label>Sound Enabled</label>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="soundToggle" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="setting-description">Enable or disable AI voice feedback</div>
+                </div>
+
+                <div class="setting-item">
+                    <label>
+                        Volume
+                        <span class="setting-value" id="volumeValue">100%</span>
+                    </label>
+                    <input type="range" id="volumeSlider" min="0" max="100" value="100">
+                    <div class="setting-description">Adjust the volume of AI voice feedback</div>
+                </div>
+
+                <div class="setting-item">
+                    <label>
+                        Playback Speed
+                        <span class="setting-value" id="speedValue">1.0x</span>
+                    </label>
+                    <input type="range" id="speedSlider" min="0.5" max="2" step="0.1" value="1.0">
+                    <div class="setting-description">Adjust how fast the AI speaks (0.5x - 2.0x)</div>
+                </div>
+
+                <div class="setting-item">
+                    <label>
+                        Screen Brightness
+                        <span class="setting-value" id="brightnessValue">100%</span>
+                    </label>
+                    <input type="range" id="brightnessSlider" min="50" max="150" value="100">
+                    <div class="setting-description">Adjust screen brightness overlay (50% - 150%)</div>
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-toggle">
+                        <label>Auto-scroll Feedback</label>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="autoscrollToggle" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="setting-description">Automatically scroll to new feedback messages</div>
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-toggle">
+                        <label>Vibration Feedback</label>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="vibrationToggle">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="setting-description">Vibrate on important alerts (mobile devices)</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Instructions Panel Overlay -->
+    <div class="instructions-overlay" id="instructionsOverlay">
+        <div class="instructions-panel">
+            <div class="instructions-header">
+                <h2>How to Use ClashGPT</h2>
+                <button class="close-button" id="closeButton">×</button>
+            </div>
+            <div class="instructions-content">
+                <div class="instruction-step">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <h3>Download Clash Royale</h3>
+                        <p>Install Clash Royale on your laptop using an Android emulator or Windows app.</p>
+                    </div>
+                </div>
+                <div class="instruction-step">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <h3>Position Your Screen</h3>
+                        <p>Move the Clash Royale window to the most right-hand side of your screen for optimal detection.</p>
+                    </div>
+                </div>
+                <div class="instruction-step">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        <h3>Select Your Coach</h3>
+                        <p>Choose your preferred AI coach from the available characters. Each coach has a unique personality and style!</p>
+                    </div>
+                </div>
+                <div class="instruction-step">
+                    <div class="step-number">4</div>
+                    <div class="step-content">
+                        <h3>Start Battle</h3>
+                        <p>Click the "Start Battle" button, then immediately start a battle in Clash Royale to receive live AI feedback and coaching!</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <h1>
+            <img src="/static/icon.png" alt="Clash Icon" class="title-icon">
+            ClashGPT - AI Coach for Clash Royale
+        </h1>
+        
+        <div id="characterSelect" class="character-select">
+            <h2>Choose Your Coach</h2>
+            <div id="characterButtons" class="character-buttons"></div>
+        </div>
+
+        <div class="controls">
+            <button id="startBtn" class="start-btn">Start Battle</button>
+            <button id="stopBtn" class="stop-btn" disabled>Stop Battle</button>
+        </div>
+
+        <div id="status" class="status info">
+            Ready to start monitoring
+        </div>
+
+        <div id="gameState" class="game-state hidden">
+            <div class="timer-display">
+                <div class="timer-label"><span style="font-size: 28px;">⏱️</span> Battle Time</div>
+                <div id="timerText" class="timer-value">0:00</div>
+            </div>
+            <div class="hp-bars" id="hpBars"></div>
+        </div>
+
+        <div id="feedback" class="feedback hidden">
+            <h2>🎯 AI Coach Feedback</h2>
+            <p id="feedbackText">Waiting for feedback...</p>
+        </div>
+
+        <audio id="audioPlayer" style="display: none;"></audio>
+    </div>
+
+    <script>
+        const socket = io();
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const status = document.getElementById('status');
+        const gameState = document.getElementById('gameState');
+        const timerText = document.getElementById('timerText');
+        const feedback = document.getElementById('feedback');
+        const feedbackText = document.getElementById('feedbackText');
+        const audioPlayer = document.getElementById('audioPlayer');
+        const hpBars = document.getElementById('hpBars');
+        const characterButtons = document.getElementById('characterButtons');
+
+        let battleActive = false;
+        let audioQueue = [];
+        let isPlayingAudio = false;
+        let characters = {};
+        let selectedCharacter = null;
+
+        // Settings
+        let settings = {
+            soundEnabled: true,
+            volume: 1.0,
+            playbackSpeed: 1.0,
+            brightness: 100,
+            autoscroll: true,
+            vibration: false
+        };
+
+        // Load settings from localStorage
+        function loadSettings() {
+            const saved = localStorage.getItem('clashgpt_settings');
+            if (saved) {
+                settings = { ...settings, ...JSON.parse(saved) };
+                applySettings();
+            }
+        }
+
+        // Save settings to localStorage
+        function saveSettings() {
+            localStorage.setItem('clashgpt_settings', JSON.stringify(settings));
+        }
+
+        // Apply settings to UI and audio
+        function applySettings() {
+            document.getElementById('soundToggle').checked = settings.soundEnabled;
+            document.getElementById('volumeSlider').value = settings.volume * 100;
+            document.getElementById('volumeValue').textContent = Math.round(settings.volume * 100) + '%';
+            document.getElementById('speedSlider').value = settings.playbackSpeed;
+            document.getElementById('speedValue').textContent = settings.playbackSpeed.toFixed(1) + 'x';
+            document.getElementById('brightnessSlider').value = settings.brightness;
+            document.getElementById('brightnessValue').textContent = settings.brightness + '%';
+            document.getElementById('autoscrollToggle').checked = settings.autoscroll;
+            document.getElementById('vibrationToggle').checked = settings.vibration;
+            
+            // Apply brightness filter
+            document.body.style.filter = `brightness(${settings.brightness}%)`;
+            
+            // Apply audio settings
+            audioPlayer.volume = settings.volume;
+            audioPlayer.playbackRate = settings.playbackSpeed;
+        }
+
+        // Settings button functionality
+        const settingsButton = document.getElementById('settingsButton');
+        const settingsOverlay = document.getElementById('settingsOverlay');
+        const closeSettingsButton = document.getElementById('closeSettingsButton');
+
+        settingsButton.addEventListener('click', () => {
+            settingsOverlay.classList.add('active');
+        });
+
+        closeSettingsButton.addEventListener('click', () => {
+            settingsOverlay.classList.remove('active');
+        });
+
+        settingsOverlay.addEventListener('click', (e) => {
+            if (e.target === settingsOverlay) {
+                settingsOverlay.classList.remove('active');
+            }
+        });
+
+        // Sound toggle
+        document.getElementById('soundToggle').addEventListener('change', (e) => {
+            settings.soundEnabled = e.target.checked;
+            saveSettings();
+            if (!settings.soundEnabled && !audioPlayer.paused) {
+                audioPlayer.pause();
+            }
+        });
+
+        // Volume slider
+        document.getElementById('volumeSlider').addEventListener('input', (e) => {
+            settings.volume = e.target.value / 100;
+            audioPlayer.volume = settings.volume;
+            document.getElementById('volumeValue').textContent = e.target.value + '%';
+            saveSettings();
+        });
+
+        // Playback speed slider
+        document.getElementById('speedSlider').addEventListener('input', (e) => {
+            settings.playbackSpeed = parseFloat(e.target.value);
+            audioPlayer.playbackRate = settings.playbackSpeed;
+            document.getElementById('speedValue').textContent = settings.playbackSpeed.toFixed(1) + 'x';
+            saveSettings();
+        });
+
+        // Brightness slider
+        document.getElementById('brightnessSlider').addEventListener('input', (e) => {
+            settings.brightness = parseInt(e.target.value);
+            document.body.style.filter = `brightness(${settings.brightness}%)`;
+            document.getElementById('brightnessValue').textContent = e.target.value + '%';
+            saveSettings();
+        });
+
+        // Autoscroll toggle
+        document.getElementById('autoscrollToggle').addEventListener('change', (e) => {
+            settings.autoscroll = e.target.checked;
+            saveSettings();
+        });
+
+        // Vibration toggle
+        document.getElementById('vibrationToggle').addEventListener('change', (e) => {
+            settings.vibration = e.target.checked;
+            saveSettings();
+        });
+
+        // Help button functionality
+        const helpButton = document.getElementById('helpButton');
+        const instructionsOverlay = document.getElementById('instructionsOverlay');
+        const closeButton = document.getElementById('closeButton');
+
+        helpButton.addEventListener('click', () => {
+            instructionsOverlay.classList.add('active');
+        });
+
+        closeButton.addEventListener('click', () => {
+            instructionsOverlay.classList.remove('active');
+        });
+
+        // Close on overlay click (outside panel)
+        instructionsOverlay.addEventListener('click', (e) => {
+            if (e.target === instructionsOverlay) {
+                instructionsOverlay.classList.remove('active');
+            }
+        });
+
+        // Close on Escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                if (instructionsOverlay.classList.contains('active')) {
+                    instructionsOverlay.classList.remove('active');
+                }
+                if (settingsOverlay.classList.contains('active')) {
+                    settingsOverlay.classList.remove('active');
+                }
+            }
+        });
+
+        // Initialize settings on page load
+        loadSettings();
+
+        // Connection status
+        socket.on('connect', () => {
+            console.log('Connected to server');
+        });
+
+        // Receive characters list
+        socket.on('characters', (data) => {
+            characters = data.characters;
+            selectedCharacter = data.selected;
+            renderCharacterButtons();
+        });
+
+        // Render character selection buttons
+        function renderCharacterButtons() {
+            characterButtons.innerHTML = '';
+            
+            for (const [id, character] of Object.entries(characters)) {
+                const btn = document.createElement('button');
+                btn.className = `character-btn ${id === selectedCharacter ? 'selected' : ''}`;
+                btn.style.color = character.color;
+                btn.innerHTML = `
+                    <span class="emoji">${character.emoji}</span>
+                    <span>${character.name}</span>
+                `;
+                btn.onclick = () => selectCharacter(id);
+                characterButtons.appendChild(btn);
+            }
+        }
+
+        // Select character
+        function selectCharacter(characterId) {
+            if (battleActive) {
+                alert('Cannot change coach during battle!');
+                return;
+            }
+            socket.emit('select_character', { character_id: characterId });
+        }
+
+        // Character selected confirmation
+        socket.on('character_selected', (data) => {
+            selectedCharacter = data.character_id;
+            renderCharacterButtons();
+        });
+
+        // Status updates
+        socket.on('status', (data) => {
+            status.className = `status ${data.type}`;
+            status.textContent = data.message;
+        });
+
+        // Battle started
+        socket.on('battle_started', () => {
+            battleActive = true;
+            startBtn.disabled = true;
+            stopBtn.disabled = false;
+            gameState.classList.remove('hidden');
+            feedback.classList.remove('hidden');
+        });
+
+        // Battle stopped
+        socket.on('battle_stopped', () => {
+            battleActive = false;
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+            status.className = 'status info';
+            status.textContent = 'Battle monitoring stopped';
+        });
+
+        // Game state update
+        socket.on('game_state', (data) => {
+            // Update timer display
+            if (data.timer !== null && data.timer !== undefined) {
+                const minutes = Math.floor(data.timer / 60);
+                const seconds = data.timer % 60;
+                timerText.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            } else {
+                timerText.textContent = '0:00';
+            }
+            
+            // Update HP bars
+            if (data.hp) {
+                hpBars.innerHTML = `
+                    <div class="hp-bar">
+                        <h3>Opponent Left</h3>
+                        <div class="hp-progress">
+                            <div class="hp-fill red" style="width: ${data.hp.opponent_left_hp || 0}%">
+                                ${(data.hp.opponent_left_hp || 0).toFixed(1)}%
+                            </div>
+                        </div>
+                    </div>
+                    <div class="hp-bar">
+                        <h3>Opponent Right</h3>
+                        <div class="hp-progress">
+                            <div class="hp-fill red" style="width: ${data.hp.opponent_right_hp || 0}%">
+                                ${(data.hp.opponent_right_hp || 0).toFixed(1)}%
+                            </div>
+                        </div>
+                    </div>
+                    <div class="hp-bar">
+                        <h3>Your Left</h3>
+                        <div class="hp-progress">
+                            <div class="hp-fill blue" style="width: ${data.hp.player_left_hp || 0}%">
+                                ${(data.hp.player_left_hp || 0).toFixed(1)}%
+                            </div>
+                        </div>
+                    </div>
+                    <div class="hp-bar">
+                        <h3>Your Right</h3>
+                        <div class="hp-progress">
+                            <div class="hp-fill blue" style="width: ${data.hp.player_right_hp || 0}%">
+                                ${(data.hp.player_right_hp || 0).toFixed(1)}%
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+        });
+
+        // AI feedback with audio
+        socket.on('ai_feedback', (data) => {
+            feedbackText.textContent = data.text;
+            
+            // Update feedback styling with character color
+            if (data.character) {
+                feedback.style.background = `linear-gradient(135deg, ${data.character.color} 0%, ${adjustColor(data.character.color, -30)} 100%)`;
+                feedbackText.parentElement.querySelector('h2').innerHTML = `${data.character.emoji} ${data.character.name}`;
+            }
+            
+            // Auto-scroll to feedback if enabled
+            if (settings.autoscroll) {
+                feedback.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+            
+            // Vibration feedback if enabled and supported
+            if (settings.vibration && 'vibrate' in navigator) {
+                navigator.vibrate(200);
+            }
+            
+            // Play audio if available and sound is enabled
+            if (data.audio && settings.soundEnabled) {
+                playAudioSequentially(data.audio);
+            }
+        });
+
+        // Helper to adjust color brightness
+        function adjustColor(color, amount) {
+            const num = parseInt(color.replace('#', ''), 16);
+            const r = Math.max(0, Math.min(255, (num >> 16) + amount));
+            const g = Math.max(0, Math.min(255, ((num >> 8) & 0x00FF) + amount));
+            const b = Math.max(0, Math.min(255, (num & 0x0000FF) + amount));
+            return '#' + (r << 16 | g << 8 | b).toString(16).padStart(6, '0');
+        }
+
+        // Play audio with queue to prevent overlap
+        async function playAudioSequentially(audioData) {
+            if (isPlayingAudio) {
+                // If already playing, skip this audio to prevent backlog
+                console.log('Audio already playing, skipping...');
+                return;
+            }
+            
+            isPlayingAudio = true;
+            
+            try {
+                const audioBlob = base64ToBlob(audioData, 'audio/mpeg');
+                const audioUrl = URL.createObjectURL(audioBlob);
+                
+                audioPlayer.src = audioUrl;
+                await audioPlayer.play();
+                
+                // Wait for audio to finish
+                await new Promise((resolve) => {
+                    audioPlayer.onended = resolve;
+                });
+                
+                // Clean up blob URL
+                URL.revokeObjectURL(audioUrl);
+            } catch (error) {
+                console.error('Error playing audio:', error);
+            } finally {
+                isPlayingAudio = false;
+            }
+        }
+
+        // Start button
+        startBtn.addEventListener('click', () => {
+            socket.emit('start_battle');
+        });
+
+        // Stop button
+        stopBtn.addEventListener('click', () => {
+            socket.emit('stop_battle');
+        });
+
+        // Helper function to convert base64 to blob
+        function base64ToBlob(base64, contentType) {
+            const byteCharacters = atob(base64);
+            const byteArrays = [];
+            
+            for (let offset = 0; offset < byteCharacters.length; offset += 512) {
+                const slice = byteCharacters.slice(offset, offset + 512);
+                const byteNumbers = new Array(slice.length);
+                
+                for (let i = 0; i < slice.length; i++) {
+                    byteNumbers[i] = slice.charCodeAt(i);
+                }
+                
+                const byteArray = new Uint8Array(byteNumbers);
+                byteArrays.push(byteArray);
+            }
+            
+            return new Blob(byteArrays, { type: contentType });
+        }
+    </script>
+</body>
+</html>
